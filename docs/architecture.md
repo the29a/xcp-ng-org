@@ -22,9 +22,9 @@ After starting a PV guest, the emulated driver in the VM is replaced by `blkfron
 
 ### XenStore
 
-XenStore is a centralized database residing on `Dom0`, it is accessible using a `UNIX socket` or with `XenBus` + `ioctl`. It's also a hierarchical namespace allowing to read/write, enumerate a virtual directory and to be notified when a change is observed via `watches`. Each domain has its own path in the store.
+XenStore is a centralized database residing on `Dom0`, it is accessible using a `UNIX socket` or with `XenBus` + `ioctl`. It's also a hierarchical namespace allowing reads/writes, enumeration of virtual directories and notifications of observed changes via `watches`. Each domain has its own path in the store.
 
-A PV driver can interact with the `XenStore` to get or set configuration, it's not used for large data exchanges. The store is mainly used during PV driver negociation via `XenBus`.
+A PV driver can interact with the `XenStore` to get or set configuration, it's not used for large data exchanges. The store is mainly used during PV driver negotiation via `XenBus`.
 
 :::tip
 For more information, take a look at:
@@ -38,9 +38,9 @@ XenBus is a kernel API allowing PV drivers to communicate between domains. It's 
 
 For implementation, you can take a look at: `drivers/xen/xenbus/xenbus_xs.c` and `drivers/xen/xenbus/xenbus_client.c`.
 
-Generally the communication is made between a `front` and `back` driver. The front driver is in the `DomU`, and the back in `Dom0`. For example it exists a `xen-blkfront.c` driver in the PV guest and a `blkback.c` driver in the host to support disk devices. This concept is called `split-driver model`. It's used for network layer too.
+Generally the communication is made between a `front` and `back` driver. The front driver is in the `DomU`, and the back in `Dom0`. For example it exists a `xen-blkfront.c` driver in the PV guest and a `blkback.c` driver in the host to support disk devices. This concept is called `split-driver model`. It's used for the network layer too.
 
-Note: Like said in the top section, it's not always the case but we can avoid usage of a back driver, we can use a process in the host user space. It's the case of XCP-ng, `tapdisk`/`tapback` are used instead of `blkback` to talk with `blkfront`.
+Note: Like said in the top section, it's not always the case but we can avoid usage of a back driver, we can use a process in the host user space. In the case of XCP-ng, `tapdisk`/`tapback` are used instead of `blkback` to talk with `blkfront`.
 
 
 #### Negociation and connection
@@ -63,7 +63,7 @@ static struct xenbus_driver blkfront_driver = {
 };
 ```
 
-In the PV driver, it's necessary to implement these callbacks to react to backend changes. Here we will see the different steps during the negociation between tapdisk and blkfront. The reactions to changes are made in this piece of code in `tapdisk`:
+In the PV driver, it's necessary to implement these callbacks to react to backend changes. Here we will see the different steps during the negotiation between tapdisk and blkfront. The reactions to changes are made in this piece of code in `tapdisk`:
 
 ```C
 int frontend_changed (vbd_t *const device, const XenbusState state) {
@@ -160,18 +160,18 @@ static void blkback_changed (struct xenbus_device *dev, enum xenbus_state backen
   }
 ```
 
-This negociation is essentially a state machine updated using `xenbus_switch_state` in the frontend and backend. They have their own state and are notified when a change is observed. We start from `XenbusStateUnknown` to `XenbusStateConnected`.
+This negotiation is essentially a state machine updated using `xenbus_switch_state` in the frontend and backend. They have their own state and are notified when a change is observed. We start from `XenbusStateUnknown` to `XenbusStateConnected`.
 To detail these steps a little more:
 
 * `XenbusStateUnknown`: Initial state of the device on `Xenbus`, before connection.
-* `XenbusStateInitialising`: During the back end initialization.
+* `XenbusStateInitialising`: During back end initialization.
 * `XenbusStateInitWait`: Entered by the backend just before the end of the initialization. The state is useful for the frontend, at this moment it can read driver parameters written by the backend in the Xenstore; it can also write info for the backend always using the store.
 * `XenbusStateInitialised`: Set to indicate that the backend is now initialized. The frontend can then switch to connected state.
 * `XenbusStateConnected`: The main state of `Xenbus`.
 * `XenbusStateClosing`: Used to interrupt properly the connection.
 * `XenbusStateClosed`: Final state when frontend and backend are disconnected.
 
-The starting point of the initialisation is in `xenopsd`:
+The starting point of the initialization is in `xenopsd`:
 
 ```ocaml
 (* The code is simplified in order to keep only the interesting parts. *)
@@ -221,7 +221,7 @@ After that the real connection can start, it's the goal of `static inline int re
 
 1. A watch is added on `<Frontend path>/state` by the backend to be notified when the state is updated. Same idea in the frontend code, a watch is added on `<Backend path>/state`.
 
-2. `tapback` is waiting for the hotplug scripts completion of the guest. After that it can switch to `XenbusStateInitWait` state. The frontend can then read the parameters like `"max-ring-page-order"` and responds using the store. `blkfront` creates a shared ring buffer using `xenbus_grant_ring`, so hunder the hood memory pages are shared between the `DomU` and `Dom0` to use this ring. Also an event channel is created by the frontend via `xenbus_alloc_evtchn` to be notified when data is written in the ring. Finally `blkfront` can update its state to: `XenbusStateInitialised`.
+2. `tapback` is waiting for the hotplug scripts completion of the guest. After that it can switch to `XenbusStateInitWait` state. The frontend can then read the parameters like `"max-ring-page-order"` and responds using the store. `blkfront` creates a shared ring buffer using `xenbus_grant_ring`, so under the hood memory pages are shared between the `DomU` and `Dom0` to use this ring. Also an event channel is created by the frontend via `xenbus_alloc_evtchn` to be notified when data is written in the ring. Finally `blkfront` can update its state to: `XenbusStateInitialised`.
 
 3. After the last state update, `tapback` can finalize the bus connection in `xenbus_connect`: the grant references of the shared ring and event channel port are fetched then it opens a `blkif` connection using the details given by the frontend.
 
@@ -246,7 +246,7 @@ Xen documentation:
 
 #### Shared memory details
 
-Like said in the previous part, when the frontend and backend are connected using `XenBus`, a `blkif` connection is created. We know the ring is used in the `tapdisk` case to read and write requests on a VHD file. It is created directly in `blkfront` using a `__get_free_pages` call to allocate a memory pointer, after that, this memory area is shared with the `Dom0` using this call:
+Like said in the previous part, when the frontend and backend are connected using `XenBus`, a `blkif` connection is created. We know the ring is used in the `tapdisk` case to read and write requests on a VHD file. It is created directly in `blkfront` using a `__get_free_pages` call to allocate a memory pointer, after that, this memory area is shared with `Dom0` using this call:
 
 ```C
 // Note: For more details concerning the ring initialization, you can
@@ -396,7 +396,7 @@ The persistent grants are not used in `tapdisk`.
 
 3. The grant reference is then added to the ring, and the backend is notified.
 
-4. In tapdisk when the event channel is notified, the request is read and the guest segments are copied into a local buffer using `iocl` with a `IOCTL_GNTDEV_GRANT_COPY` request. So before writing to the VHD file we must have to **make a copy** of the data. Another possible solution is to use the `IOCTL_GNTDEV_MAP_GRANT_REF` + a `mmap` call to avoid a copy, but **it is not necessarily faster**.
+4. In tapdisk when the event channel is notified, the request is read and the guest segments are copied into a local buffer using `ioctl` with a `IOCTL_GNTDEV_GRANT_COPY` request. So before writing to the VHD file we must **make a copy** of the data. Another possible solution is to use the `IOCTL_GNTDEV_MAP_GRANT_REF` + a `mmap` call to avoid a copy, but **it is not necessarily faster**.
 
 5. Finally we can write the request and notify the frontend.
 
